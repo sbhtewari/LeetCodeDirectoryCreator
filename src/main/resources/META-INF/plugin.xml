@@ -1,0 +1,29 @@
+<!-- Plugin Configuration File: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <!-- Unique identifier of the plugin. It should be FQN, cannot be changed between the plugin versions. -->
+    <id>io.github.sbhtewari.LeetCodeDirectoryCreator</id>
+
+    <!-- Public plugin name should be written in Title Case.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name -->
+    <name>LeetCodeDirectoryCreator</name>
+
+    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
+    <vendor url="https://github.com/sbhtewari">SbhTewari</vendor>
+
+    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
+    <description><![CDATA[
+        Convert LeetCode problem name to create directory.<br>
+    ]]></description>
+
+    <depends>com.intellij.java</depends>
+    <actions>
+        <action id="io.github.sbhtewari.leetcodedirectorycreator"
+                class="io.github.sbhtewari.leetcodedirectorycreator.LeetCodeDirectoryCreator"
+                text="LC Directory"
+                description="Creates a directory based on user provided input">
+            <!-- This adds it to the 'New' submenu in the right-click menu -->
+            <add-to-group group-id="NewGroup" anchor="first"/>
+        </action>
+    </actions>
+</idea-plugin>
