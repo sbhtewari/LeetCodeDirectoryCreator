@@ -1,11 +1,11 @@
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "2.1.20"
-    id("org.jetbrains.intellij.platform") version "2.10.2"
+    kotlin("jvm") version "2.4.0"
+    id("org.jetbrains.intellij.platform") version "2.19.0"
 }
 
 group = "io.github.sbhtewari"
-version = "1.0-SNAPSHOT"
+version = "1.1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -18,9 +18,11 @@ repositories {
 dependencies {
     intellijPlatform {
 
-        intellijIdea("2025.2.4")
+        intellijIdea("2026.2.3")
 
         bundledPlugin("com.intellij.java")
+
+        bundledPlugin("org.jetbrains.kotlin")
     }
 }
 
@@ -39,13 +41,13 @@ intellijPlatform {
 tasks {
     // Set the JVM compatibility versions
     withType<JavaCompile> {
-        sourceCompatibility = "21"
-        targetCompatibility = "21"
+        sourceCompatibility = "25"
+        targetCompatibility = "25"
     }
 }
 
 kotlin {
     compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25)
     }
 }

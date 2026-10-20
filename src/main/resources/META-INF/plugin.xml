@@ -16,6 +16,7 @@
         Convert LeetCode problem name to create directory.<br>
     ]]></description>
 
+    <depends>org.jetbrains.kotlin</depends>
     <depends>com.intellij.java</depends>
     <actions>
         <action id="io.github.sbhtewari.leetcodedirectorycreator"
