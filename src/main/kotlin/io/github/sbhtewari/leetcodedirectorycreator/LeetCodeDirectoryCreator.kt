@@ -3,9 +3,18 @@ package io.github.sbhtewari.leetcodedirectorycreator
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.InputValidator
 import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.JavaDirectoryService
+import com.intellij.psi.PsiDirectory
+import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiManager
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtPsiFactory
 import java.io.IOException
 
 
@@ -20,32 +29,108 @@ class LeetCodeDirectoryCreator : AnAction(Icons.AddDirectory) {
         val parentDir = if (selectedFile.isDirectory) selectedFile else selectedFile.parent
         if (parentDir == null) return
 
+        val inputMessage = "Enter LeetCode problem name"
+        val inputTitle = "Create LeetCode Name Directory"
+        val inputInitialValue = ""
         val input = Messages.showInputDialog(
             project,
-            "Enter LeetCode problem name",
-            "Create LeetCode Name Directory",
+            inputMessage,
+            inputTitle,
             Messages.getQuestionIcon(),
-            "",
+            inputInitialValue,
             NonEmptyValidator()
         )
 
         if (input.isNullOrEmpty()) return
 
         val directoryName = buildPackageDirectoryName(input)
+        val kotlinObjectName = buildKotlinObjectName(input)
 
-        if (directoryName.isEmpty()) return
+        if (directoryName.isEmpty() || kotlinObjectName.isEmpty()) return
 
         // 3. Perform File Action (Must be wrapped in a WriteCommandAction)
         WriteCommandAction.runWriteCommandAction(project) {
             try {
                 if (parentDir.findChild(directoryName) == null) {
-                    parentDir.createChildDirectory(this, directoryName)
+                    val childDir = parentDir.createChildDirectory(this, directoryName)
+                    createJavaFileWithPackage(project, childDir, "Solution")
+                    createKotlinObjectFile(project, childDir, kotlinObjectName)
                 } else {
                     println("Directory already exists")
                 }
             } catch (ex: IOException) {
                 Messages.showErrorDialog(project, "Could not create directory: " + ex.message, "Error")
             }
+        }
+    }
+
+    fun createJavaFileWithPackage(
+        project: Project,
+        childDirVirtualFile: VirtualFile,
+        className: String
+    ): PsiFile? {
+        return try {
+            WriteAction.computeAndWait<PsiFile, IOException> {
+                // 1. Convert VirtualFile directory to a PSI Directory
+                val psiDirectory: PsiDirectory = PsiManager.getInstance(project)
+                    .findDirectory(childDirVirtualFile) ?: return@computeAndWait null
+
+                // 2. Create a Java Class file using IntelliJ's built-in Java directory service.
+                // This automatically calculates the proper package header (e.g., "package com.example.foo;")
+                // based on the directory's position relative to the Source Root.
+                val psiClass = JavaDirectoryService.getInstance().createClass(psiDirectory, className)
+
+                // 3. Return the underlying file
+                psiClass.containingFile
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    fun createKotlinObjectFile(
+        project: Project,
+        childDirVirtualFile: VirtualFile,
+        objectName: String
+    ): KtFile? {
+        return try {
+            WriteAction.computeAndWait<KtFile, IOException> {
+                // 1. Convert the VirtualFile directory to a PSI Directory
+                val psiDirectory: PsiDirectory = PsiManager.getInstance(project)
+                    .findDirectory(childDirVirtualFile) ?: return@computeAndWait null
+
+                // 2. Automatically calculate the correct package path relative to the Source Roots
+                val psiPackage = JavaDirectoryService.getInstance().getPackage(psiDirectory)
+                val packageName = psiPackage?.qualifiedName
+
+                // 3. Use KtPsiFactory to dynamically build the structured file content
+                val psiFactory = KtPsiFactory(project)
+
+                // Build the source code buffer cleanly
+                val fileContent = buildString {
+                    if (!packageName.isNullOrBlank()) {
+                        appendLine("package $packageName")
+                        appendLine()
+                    }
+                    appendLine("import test.SimpleTestCase")
+                    appendLine()
+                    appendLine("object $objectName : SimpleTestCase() {")
+                    appendLine("    override fun calculateResult(): Any? {")
+                    appendLine("        ")
+                    appendLine("    }")
+                    appendLine("}")
+                }
+
+                // 4. Instantiate the file safely inside the target directory
+                val ktFile = psiFactory.createFile("${objectName}.kt", fileContent)
+                val addedFile = psiDirectory.add(ktFile) as KtFile
+
+                addedFile
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 
@@ -63,9 +148,9 @@ class LeetCodeDirectoryCreator : AnAction(Icons.AddDirectory) {
     private fun buildPackageDirectoryName(input: String): String {
         val output = mutableListOf<String>()
         val nameSplit = input.lowercase().split(" ")
-
-        val problemId = extractProblemId(nameSplit[0])
         var processingIndex = 0
+
+        val problemId = extractProblemNumber(nameSplit[0])
         if (!problemId.isNullOrEmpty()) {
             processingIndex++
             output.add("p$problemId")
@@ -81,6 +166,38 @@ class LeetCodeDirectoryCreator : AnAction(Icons.AddDirectory) {
         output.addAll(removeSpecialCharacters(nameSplit, processingIndex))
 
         return output.joinToString("_")
+    }
+
+    private fun buildKotlinObjectName(input: String): String {
+        val output = mutableListOf<String>()
+        val nameSplit = convertToTitleCase(input)
+        var processingIndex = 0
+
+        val problemId = extractProblemNumber(nameSplit[0])
+        // skip problem number for Object name
+        if (!problemId.isNullOrEmpty()) {
+            processingIndex++
+        }
+
+        val wordWithDigitPrefix = extractNameStartWithDigit(nameSplit[processingIndex])
+        if (!wordWithDigitPrefix.isNullOrEmpty()) {
+            processingIndex++
+            output.add(wordWithDigitPrefix)
+        }
+
+        // add all remaining indexes to output
+        output.addAll(removeSpecialCharacters(nameSplit, processingIndex))
+
+        return output.joinToString("")
+    }
+
+    private fun convertToTitleCase(input: String): List<String> {
+        return input.split(" ")
+            .filter { it.isNotEmpty() }
+            .map { word ->
+                word.lowercase()
+                    .replaceFirstChar { it.titlecase() }
+            }
     }
 
     private fun removeSpecialCharacters(input: List<String>, startIdx: Int): List<String> {
@@ -112,7 +229,7 @@ class LeetCodeDirectoryCreator : AnAction(Icons.AddDirectory) {
         return null
     }
 
-    private fun extractProblemId(sourceStr: String): String? {
+    private fun extractProblemNumber(sourceStr: String): String? {
         val pattern = Regex("^([0-9]+\\.)")
 
         val match = pattern.find(sourceStr)
